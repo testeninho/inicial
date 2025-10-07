@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rastreador de Hábitos Diários (Local)</title>
+    <!-- Carrega Tailwind CSS para estilização moderna e responsiva -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Carrega Chart.js para a visualização do gráfico -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <style>
+        /* Define a fonte Inter e cores base */
+        :root {
+            --color-primary: #4f46e5;
+            --color-secondary: #10b981;
+            --color-danger: #ef4444;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        /* Estilização para o indicador de carregamento */
+        .loading-indicator {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--color-primary);
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div id="app" class="max-w-4xl mx-auto bg-white shadow-xl rounded-2xl p-6 md:p-10">
+
+        <!-- Título e Status -->
+        <header class="mb-8">
+            <h1 class="text-3xl font-extrabold text-gray-800 mb-2">Meu Rastreador de Hábitos (Local)</h1>
+            <p class="text-gray-500 mb-4">O histórico é salvo e carregado automaticamente no seu navegador (Local Storage).</p>
+            
+            <!-- Total de Dinheiro Guardado -->
+            <div id="totalDinheiro" class="p-3 mb-4 bg-blue-100 rounded-xl border border-blue-300 font-semibold text-blue-800 flex justify-between items-center shadow">
+                <span>💰 Dinheiro Total Guardado:</span>
+                <span id="dinheiroValor" class="text-2xl font-extrabold text-blue-700">R$ 0,00</span>
+            </div>
+            
+            <div id="authStatus" class="text-sm font-medium p-2 bg-indigo-50 rounded-lg border border-indigo-200">
+                <!-- Status de Persistência Local -->
+                ✅ Sistema de persistência local ativado. Não requer conexão ou login.
+            </div>
+        </header>
+
+        <!-- Formulários de Registro -->
+        <section id="registros" class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+            <!-- 1. Caloria (Números Naturais) -->
+            <div class="card bg-purple-50 p-5 rounded-xl shadow-md border-t-4 border-purple-600">
+                <h2 class="text-xl font-semibold text-purple-800 mb-3 flex items-center">
+                    <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    Caloria
+                </h2>
+                <input type="number" id="inputCaloria" placeholder="Ex: 500" min="0" class="w-full p-3 mb-4 rounded-lg border-2 border-purple-300 focus:outline-none focus:border-purple-500 transition duration-150" required>
+                <button onclick="enviarRegistro('Caloria')" class="btn-primary w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-xl transition duration-200 shadow-lg shadow-purple-200 flex justify-center items-center">
+                    <span id="btnCaloriaText">Enviar Caloria</span>
+                    <div id="loadingCaloria" class="loading-indicator hidden ml-2"></div>
+                </button>
+            </div>
+
+            <!-- 2. Fome (Sim ou Não) -->
+            <div class="card bg-pink-50 p-5 rounded-xl shadow-md border-t-4 border-pink-600">
+                <h2 class="text-xl font-semibold text-pink-800 mb-3 flex items-center">
+                    <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    Fome
+                </h2>
+                <select id="selectFome" class="w-full p-3 mb-4 rounded-lg border-2 border-pink-300 focus:outline-none focus:border-pink-500 transition duration-150" required>
+                    <option value="" disabled selected>Escolha uma opção</option>
+                    <option value="Sim">Sim, senti fome</option>
+                    <option value="Não">Não, estava saciado</option>
+                </select>
+                <button onclick="enviarRegistro('Fome')" class="btn-primary w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 rounded-xl transition duration-200 shadow-lg shadow-pink-200 flex justify-center items-center">
+                    <span id="btnFomeText">Enviar Fome</span>
+                    <div id="loadingFome" class="loading-indicator hidden ml-2"></div>
+                </button>
+            </div>
+
+            <!-- 3. Exercício (Tipo e Tempo) -->
+            <div class="card bg-green-50 p-5 rounded-xl shadow-md border-t-4 border-green-600">
+                <h2 class="text-xl font-semibold text-green-800 mb-3 flex items-center">
+                    <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    Exercício
+                </h2>
+                <select id="selectExercicio" class="w-full p-3 mb-4 rounded-lg border-2 border-green-300 focus:outline-none focus:border-green-500 transition duration-150" required>
+                    <option value="" disabled selected>Escolha o tipo de exercício</option>
+                    <option value="Corrida">Corrida</option>
+                    <option value="Academia">Academia</option>
+                </select>
+                <input type="number" id="inputTempoExercicio" placeholder="Tempo (minutos)" min="1" class="w-full p-3 mb-4 rounded-lg border-2 border-green-300 focus:outline-none focus:border-green-500 transition duration-150" required>
+                <button onclick="enviarRegistro('Exercicio')" class="btn-primary w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl transition duration-200 shadow-lg shadow-green-200 flex justify-center items-center">
+                    <span id="btnExercicioText">Enviar Exercício</span>
+                    <div id="loadingExercicio" class="loading-indicator hidden ml-2"></div>
+                </button>
+            </div>
+
+            <!-- 4. Comi Doce (Simples Sim) -->
+            <div class="card bg-red-50 p-5 rounded-xl shadow-md border-t-4 border-red-600">
+                <h2 class="text-xl font-semibold text-red-800 mb-3 flex items-center">
+                    <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c1.657 0 3 .895 3 2s-1.343 2-3 2-3-.895-3-2 1.343-2 3-2zM4 16h16a1 1 0 010 2H4a1 1 0 010-2z"></path></svg>
+                    Comi Doce
+                </h2>
+                <button onclick="enviarRegistro('Doce')" class="btn-primary w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl transition duration-200 shadow-lg shadow-red-200 flex justify-center items-center">
+                    <span id="btnDoceText">Sim, Comi Doce!</span>
+                </button>
+            </div>
+
+            <!-- 5. Guardei Dinheiro (Valor) -->
+            <div class="card bg-blue-50 p-5 rounded-xl shadow-md border-t-4 border-blue-600">
+                <h2 class="text-xl font-semibold text-blue-800 mb-3 flex items-center">
+                    <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m0 0l3 3m0-3h6a2 2 0 002-2v-3a2 2 0 00-2-2H9z"></path></svg>
+                    Guardei Dinheiro
+                </h2 class="text-xl font-semibold text-blue-800 mb-3 flex items-center">
+                <input type="number" id="inputDinheiro" placeholder="Valor em R$" min="0" step="0.01" class="w-full p-3 mb-4 rounded-lg border-2 border-blue-300 focus:outline-none focus:border-blue-500 transition duration-150" required>
+                <button onclick="enviarRegistro('Dinheiro')" class="btn-primary w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition duration-200 shadow-lg shadow-blue-200 flex justify-center items-center">
+                    <span id="btnDinheiroText">Enviar Dinheiro Guardado</span>
+                    <div id="loadingDinheiro" class="loading-indicator hidden ml-2"></div>
+                </button>
+            </div>
+        </section>
+
+        <!-- Gráfico Semanal -->
+        <hr class="my-8 border-gray-200">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">Resumo Semanal (Caloria vs. Dinheiro)</h2>
+        <div class="bg-gray-50 p-4 rounded-xl shadow-inner mb-8">
+            <div class="relative h-64 sm:h-80">
+                <canvas id="weeklyChartCanvas"></canvas>
+            </div>
+        </div>
+
+        <!-- Histórico de Registros -->
+        <hr class="my-8 border-gray-200">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">Seu Histórico Recente</h2>
+        
+        <!-- Botão de Exportação e Mensagem do Histórico -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
+            <p class="text-gray-600 mb-2 sm:mb-0">Clique no ícone de lixeira (🗑️) para deletar um registro.</p>
+            <button onclick="exportarHistorico()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-xl transition duration-200 flex items-center shadow-sm">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                Exportar Histórico (CSV)
+            </button>
+        </div>
+
+        <!-- Novo Status de Exibição do Histórico -->
+        <div id="historicoStatus" class="text-sm font-medium text-indigo-700 mb-3 p-2 bg-indigo-50 rounded-lg hidden"></div>
+
+        <div id="historicoContainer" class="space-y-3">
+            <ul id="historicoLista" class="space-y-3">
+                <!-- Registros serão inseridos aqui pelo JavaScript -->
+            </ul>
+        </div>
+        <!-- O botão Ver Mais será inserido aqui pelo JS -->
+        <div id="verMaisContainer"></div>
+
+    </div>
+
+    <!-- Script de Inicialização e Lógica Local Storage -->
+    <script>
+        // --- Variáveis de Estado Local ---
+        const STORAGE_KEY = 'rastreador_habitos_v1';
+        let allRegistros = []; 
+        let historyLimit = 10; // Limite inicial de exibição
+        const INITIAL_LIMIT = 10;
+
+        let weeklyChart = null; // Instância do Chart.js
+
+        const historicoListaEl = document.getElementById('historicoLista');
+        const dinheiroValorEl = document.getElementById('dinheiroValor');
+        const verMaisContainerEl = document.getElementById('verMaisContainer');
+
+        // --- Funções de Persistência (Local Storage) ---
+
+        const loadRegistros = () => {
+            try {
+                const data = localStorage.getItem(STORAGE_KEY);
+                return data ? JSON.parse(data) : [];
+            } catch (e) {
+                console.error("Erro ao carregar dados do Local Storage:", e);
+                return [];
+            }
+        };
+
+        const saveRegistros = () => {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(allRegistros));
+                // Atualiza o gráfico e o histórico
+                renderizarHistorico();
+                renderizarGrafico(); 
+            } catch (e) {
+                console.error("Erro ao salvar dados no Local Storage:", e);
+            }
+        };
+
+        const calcularTotalDinheiro = () => {
+            const total = allRegistros
+                .filter(reg => reg.metric === 'Dinheiro' && typeof reg.value === 'number')
+                .reduce((sum, reg) => sum + reg.value, 0);
+
+            dinheiroValorEl.textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
+        };
+
+
+        // --- Funções de Gráfico (Chart.js) ---
+
+        /**
+         * Agrega dados de Calorias e Dinheiro guardado por dia na última semana.
+         * @returns {{labels: string[], caloriaData: number[], dinheiroData: number[]}}
+         */
+        const aggregateWeeklyData = () => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const sevenDaysAgo = new Date(today);
+            sevenDaysAgo.setDate(today.getDate() - 6);
+
+            const weeklyData = {};
+            const labels = [];
+            const dateKeys = [];
+
+            // 1. Inicializa os 7 dias
+            for (let i = 0; i < 7; i++) {
+                const d = new Date(sevenDaysAgo);
+                d.setDate(sevenDaysAgo.getDate() + i);
+                const dateKey = d.toISOString().split('T')[0]; // YYYY-MM-DD
+                
+                // Formato para o Label: Dia da Semana (e.g., Seg, Ter)
+                const dayOptions = { weekday: 'short' };
+                let label = d.toLocaleDateString('pt-BR', dayOptions);
+                label = label.charAt(0).toUpperCase() + label.slice(1).replace('.', ''); // Ex: 'Seg'
+
+                labels.push(label);
+                dateKeys.push(dateKey);
+                weeklyData[dateKey] = { Caloria: 0, Dinheiro: 0 };
+            }
+
+            // 2. Processa os registros
+            allRegistros.forEach(reg => {
+                const regDate = new Date(reg.dataEnvio);
+                regDate.setHours(0, 0, 0, 0); // Zera hora para comparação de dia
+
+                if (regDate >= sevenDaysAgo) {
+                    const dateKey = regDate.toISOString().split('T')[0];
+                    
+                    if (weeklyData[dateKey]) {
+                        if (reg.metric === 'Caloria' && typeof reg.value === 'number') {
+                            weeklyData[dateKey].Caloria += reg.value;
+                        }
+                        // O dinheiro guardado é somado, mas queremos garantir que não haja NaN
+                        if (reg.metric === 'Dinheiro' && typeof reg.value === 'number') {
+                            weeklyData[dateKey].Dinheiro += reg.value;
+                        }
+                    }
+                }
+            });
+
+            // 3. Formata para Chart.js
+            const caloriaData = dateKeys.map(key => weeklyData[key] ? weeklyData[key].Caloria : 0);
+            const dinheiroData = dateKeys.map(key => weeklyData[key] ? weeklyData[key].Dinheiro : 0);
+
+            // 4. Renomeia o último label para "HOJE"
+            if (labels.length > 0) {
+                 labels[labels.length - 1] = 'HOJE';
+            }
+
+            return { labels, caloriaData, dinheiroData };
+        };
+
+        /**
+         * Renderiza ou atualiza o gráfico semanal usando Chart.js.
+         */
+        const renderizarGrafico = () => {
+            const data = aggregateWeeklyData();
+            const ctx = document.getElementById('weeklyChartCanvas').getContext('2d');
+
+            // Destrói a instância anterior se existir para evitar bugs de atualização
+            if (weeklyChart) {
+                weeklyChart.destroy();
+            }
+
+            weeklyChart = new Chart(ctx, {
+                type: 'bar', // Tipo principal: Barras para Calorias
+                data: {
+                    labels: data.labels,
+                    datasets: [
+                        {
+                            label: 'Calorias (kcal)',
+                            data: data.caloriaData,
+                            backgroundColor: 'rgba(147, 51, 234, 0.8)', // Roxo
+                            borderColor: 'rgba(147, 51, 234, 1)',
+                            borderWidth: 1,
+                            yAxisID: 'caloriaY',
+                            borderRadius: 6
+                        },
+                        {
+                            label: 'Dinheiro Guardado (R$)',
+                            data: data.dinheiroData,
+                            backgroundColor: 'rgba(59, 130, 246, 0.8)', // Azul (Não usado, pois é uma linha)
+                            borderColor: 'rgba(37, 99, 235, 1)', // Azul escuro
+                            borderWidth: 3,
+                            yAxisID: 'dinheiroY',
+                            type: 'line', // Tipo secundário: Linha para Dinheiro
+                            fill: false,
+                            tension: 0.4,
+                            pointRadius: 6,
+                            pointBackgroundColor: 'white',
+                            pointBorderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            grid: { display: false }
+                        },
+                        caloriaY: {
+                            type: 'linear',
+                            position: 'left',
+                            title: { display: true, text: 'Calorias (kcal)', font: { size: 12 } },
+                            ticks: { beginAtZero: true, color: '#8b5cf6' } // Roxo mais claro
+                        },
+                        dinheiroY: {
+                            type: 'linear',
+                            position: 'right',
+                            title: { display: true, text: 'Dinheiro (R$)', font: { size: 12 } },
+                            ticks: { 
+                                beginAtZero: true, 
+                                callback: function(value) { return 'R$' + value.toFixed(0); },
+                                color: '#3b82f6' // Azul mais claro
+                            },
+                            grid: { drawOnChartArea: false } // Não desenha grade para este eixo
+                        }
+                    },
+                    plugins: {
+                        legend: { position: 'top' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        if (context.dataset.label.includes('R$')) {
+                                            label += 'R$' + context.parsed.y.toFixed(2).replace('.', ',');
+                                        } else {
+                                            label += context.parsed.y + ' kcal';
+                                        }
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        };
+
+
+        // --- Funções de Renderização e Exclusão ---
+
+        const formatarData = (timestamp) => {
+            const date = new Date(timestamp);
+            const options = { 
+                day: '2-digit', month: 'short', year: 'numeric', 
+                hour: '2-digit', minute: '2-digit', second: '2-digit',
+                hour12: false 
+            };
+            return date.toLocaleTimeString('pt-BR', options).replace(',', '.');
+        };
+
+        /**
+         * Renderiza a lista de histórico na interface e recalcula os totais.
+         */
+        const renderizarHistorico = () => {
+            historicoListaEl.innerHTML = ''; // Limpa a lista atual
+
+            // 1. Recalcula o total de dinheiro
+            calcularTotalDinheiro();
+
+            // 2. Ordena (Mais recente primeiro)
+            const registrosOrdenados = [...allRegistros].sort((a, b) => {
+                return new Date(b.dataEnvio) - new Date(a.dataEnvio);
+            });
+
+            // 3. Limita a exibição com base em historyLimit
+            const registrosParaExibir = registrosOrdenados.slice(0, historyLimit);
+            const totalRecords = registrosOrdenados.length;
+
+
+            // 4. Atualiza o status de exibição (NOVA FUNCIONALIDADE DE DEBUG VISUAL)
+            const statusEl = document.getElementById('historicoStatus');
+            statusEl.classList.remove('hidden');
+
+            if (totalRecords > INITIAL_LIMIT && historyLimit === INITIAL_LIMIT) {
+                 statusEl.textContent = `Mostrando os ${registrosParaExibir.length} registros mais recentes de um total de ${totalRecords}.`;
+            } else if (totalRecords > 0) {
+                 statusEl.textContent = `Mostrando todos os ${registrosParaExibir.length} registros.`;
+            } else {
+                 statusEl.classList.add('hidden');
+            }
+
+
+            // 5. Renderiza os itens
+            if (registrosParaExibir.length === 0) {
+                historicoListaEl.innerHTML = '<li class="text-gray-500 italic p-3 border-l-4 border-gray-400 bg-gray-50 rounded">Nenhum registro encontrado. Comece a enviar seus dados!</li>';
+            } else {
+                registrosParaExibir.forEach(reg => {
+                    const li = document.createElement('li');
+                    li.className = 'bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex justify-between items-center';
+
+                    let icon, color, description;
+
+                    switch (reg.metric) {
+                        case 'Caloria':
+                            icon = '🔥'; color = 'bg-purple-100 text-purple-800';
+                            description = `${reg.value} kcal`;
+                            break;
+                        case 'Fome':
+                            icon = '🍽️'; color = reg.value === 'Sim' ? 'bg-pink-100 text-pink-800' : 'bg-pink-100 text-pink-600';
+                            description = `Sentiu fome: ${reg.value}`;
+                            break;
+                        case 'Exercicio':
+                            icon = '💪'; color = 'bg-green-100 text-green-800';
+                            description = `${reg.category || 'N/A'} - ${reg.value} min`;
+                            break;
+                        case 'Doce':
+                            icon = '🍭'; color = 'bg-red-100 text-red-800';
+                            description = `Comi doce: Sim`;
+                            break;
+                        case 'Dinheiro':
+                            icon = '💰'; color = 'bg-blue-100 text-blue-800';
+                            description = `Guardado: R$ ${parseFloat(reg.value).toFixed(2).replace('.', ',')}`;
+                            break;
+                        default:
+                            icon = '❓'; color = 'bg-gray-100 text-gray-800';
+                            description = `Valor: ${reg.value}`;
+                    }
+
+                    const dataEnvio = formatarData(reg.dataEnvio);
+
+                    li.innerHTML = `
+                        <div class="flex-1 min-w-0 pr-4">
+                            <div class="flex items-center mb-1">
+                                <span class="font-bold text-lg mr-2">${icon}</span>
+                                <span class="font-medium ${color} px-2.5 py-0.5 rounded-full text-sm">${reg.metric}</span>
+                            </div>
+                            <p class="text-gray-700 truncate">${description}</p>
+                            <span class="text-sm font-mono text-gray-500 mt-1 block">${dataEnvio}</span>
+                        </div>
+                        
+                        <!-- Botão de Exclusão com o ID local (timestamp) -->
+                        <button 
+                            onclick="deletarRegistro('${reg.id}')"
+                            class="p-2 ml-4 text-red-500 hover:text-red-700 bg-red-100 hover:bg-red-200 rounded-full transition duration-150 flex-shrink-0"
+                            aria-label="Deletar registro de ${reg.metric}"
+                            title="Deletar Registro"
+                        >
+                            <!-- Ícone de Lixeira (SVG) -->
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                        </button>
+                    `;
+                    historicoListaEl.appendChild(li);
+                });
+            }
+
+            // 6. Renderiza o botão "Ver Mais"
+            renderizarBotaoVerMais(totalRecords);
+        };
+
+        /**
+         * Renderiza o botão "Ver Mais" ou "Ver Menos".
+         * @param {number} totalRecords O número total de registros no array.
+         */
+        const renderizarBotaoVerMais = (totalRecords) => {
+            verMaisContainerEl.innerHTML = ''; // Limpa container
+
+            if (totalRecords <= INITIAL_LIMIT) {
+                return; // Não precisa de botão se não há mais de 10
+            }
+
+            const button = document.createElement('button');
+            button.className = 'w-full mt-4 p-3 font-semibold rounded-xl transition duration-200 shadow-md';
+            button.onclick = window.toggleHistoryView;
+            
+            const isShowingAll = historyLimit >= totalRecords;
+            
+            if (isShowingAll) {
+                button.textContent = `▲ Ver Menos (Mostrando todos os ${totalRecords} registros)`;
+                button.classList.add('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
+            } else {
+                const hiddenCount = totalRecords - INITIAL_LIMIT;
+                button.textContent = `▼ Ver Mais (${hiddenCount} itens ocultos)`;
+                button.classList.add('bg-indigo-600', 'text-white', 'hover:bg-indigo-700');
+            }
+            verMaisContainerEl.appendChild(button);
+        }
+        
+        /**
+         * Função global para alternar entre 10 itens e todos os itens.
+         */
+        window.toggleHistoryView = () => {
+            const totalRecords = allRegistros.length;
+            if (historyLimit === INITIAL_LIMIT) {
+                historyLimit = totalRecords; // Mostra todos
+            } else {
+                historyLimit = INITIAL_LIMIT; // Volta para 10
+            }
+            renderizarHistorico(); // Re-renderiza a lista com o novo limite
+            // Rola para o topo da lista para facilitar a visualização após a mudança
+            historicoListaEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+
+        /**
+         * Deleta um registro específico pelo seu ID (timestamp).
+         * @param {string} id O ID (timestamp) do registro a ser deletado.
+         */
+        window.deletarRegistro = (id) => {
+            const initialLength = allRegistros.length;
+            allRegistros = allRegistros.filter(reg => reg.id !== id);
+            
+            if (allRegistros.length < initialLength) {
+                saveRegistros(); // saveRegistros chama renderizarHistorico e renderizarGrafico
+                console.log(`Registro com ID ${id} deletado com sucesso.`);
+            } else {
+                 console.warn(`Registro com ID ${id} não encontrado.`);
+            }
+        };
+
+
+        // --- Função de Envio de Dados ---
+
+        window.enviarRegistro = (metric) => {
+            let value, data, btnTextEl, loadingEl, category;
+            
+            const uiMap = {
+                'Caloria': { input: 'inputCaloria', text: 'btnCaloriaText', loading: 'loadingCaloria' },
+                'Fome': { input: 'selectFome', text: 'btnFomeText', loading: 'loadingFome' },
+                'Exercicio': { input: 'inputTempoExercicio', category: 'selectExercicio', text: 'btnExercicioText', loading: 'loadingExercicio' },
+                'Doce': { input: null, text: 'btnDoceText', loading: 'loadingDoce' },
+                'Dinheiro': { input: 'inputDinheiro', text: 'btnDinheiroText', loading: 'loadingDinheiro' },
+            };
+
+            const map = uiMap[metric];
+            // Garante que os elementos de carregamento sejam manipulados corretamente
+            btnTextEl = document.getElementById(map.text);
+            loadingEl = document.getElementById(map.loading) || { classList: { add: () => {}, remove: () => {} } }; 
+            
+            // 1. Coleta e Validação dos Dados
+            try {
+                switch (metric) {
+                    case 'Caloria':
+                        value = parseInt(document.getElementById(map.input).value);
+                        if (isNaN(value) || value < 0) throw new Error("Por favor, insira um número natural válido para Caloria.");
+                        break;
+                    case 'Fome':
+                        value = document.getElementById(map.input).value;
+                        if (!value) throw new Error("Por favor, selecione Sim ou Não para Fome.");
+                        break;
+                    case 'Exercicio':
+                        category = document.getElementById(map.category).value;
+                        value = parseInt(document.getElementById(map.input).value);
+                        if (!category) throw new Error("Por favor, selecione o tipo de Exercício.");
+                        if (isNaN(value) || value <= 0) throw new Error("Por favor, insira um tempo de exercício válido em minutos.");
+                        break;
+                    case 'Doce':
+                        value = "Sim"; 
+                        break;
+                    case 'Dinheiro':
+                        value = parseFloat(document.getElementById(map.input).value);
+                        if (isNaN(value) || value < 0) throw new Error("Por favor, insira um valor monetário válido.");
+                        break;
+                    default:
+                        throw new Error("Métrica desconhecida.");
+                }
+
+                // 2. Monta o Objeto de Dados
+                data = {
+                    id: Date.now().toString(), 
+                    metric: metric,
+                    value: value,
+                    dataEnvio: Date.now(), 
+                };
+
+                if (metric === 'Exercicio') {
+                    data.category = category;
+                }
+
+            } catch (error) {
+                console.warn(`Erro de validação para ${metric}:`, error.message);
+                btnTextEl.textContent = "❌ " + error.message.split(":")[0];
+                setTimeout(() => btnTextEl.textContent = `Enviar ${metric}`, 2500);
+                return;
+            }
+
+            // 3. Envia e Salva Localmente
+            btnTextEl.classList.add('hidden');
+            loadingEl.classList.remove('hidden');
+
+            try {
+                allRegistros.push(data);
+                
+                // Salva, renderiza histórico e gráfico
+                saveRegistros(); 
+
+                // Limpa os campos
+                if (map.input && document.getElementById(map.input)) {
+                    document.getElementById(map.input).value = '';
+                }
+                if (map.category && document.getElementById(map.category)) {
+                    document.getElementById(map.category).value = ''; 
+                }
+                document.getElementById('selectFome').value = ''; // Limpa o Select de Fome
+
+                // Feedback de sucesso
+                btnTextEl.textContent = "✅ Enviado!";
+                setTimeout(() => btnTextEl.textContent = `Enviar ${metric}`, 2000);
+
+            } catch (error) {
+                console.error(`Erro ao enviar o registro de ${metric}:`, error);
+                btnTextEl.textContent = "❌ Erro ao Enviar";
+                setTimeout(() => btnTextEl.textContent = `Enviar ${metric}`, 3000);
+
+            } finally {
+                loadingEl.classList.add('hidden');
+                btnTextEl.classList.remove('hidden');
+            }
+        };
+
+        // --- Função para Exportar o Histórico para CSV ---
+        window.exportarHistorico = () => {
+            if (allRegistros.length === 0) {
+                console.warn("Nenhum registro para exportar.");
+                const btnExport = document.querySelector('button[onclick="exportarHistorico()"]');
+                const originalText = btnExport.innerHTML;
+                btnExport.innerHTML = '<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg> Nada para Exportar!';
+                setTimeout(() => { btnExport.innerHTML = originalText; }, 2000);
+                return;
+            }
+
+            const headers = ["ID_Registro", "Métrica", "Valor", "Categoria", "Data_Envio_UTC"];
+            let csv = headers.join(";") + "\n"; 
+
+            allRegistros.forEach(reg => {
+                let value;
+                if (typeof reg.value === 'number') {
+                    value = reg.value.toFixed(2); 
+                } else {
+                    value = reg.value || '';
+                }
+                
+                const category = reg.category || '';
+                const dateUTC = new Date(reg.dataEnvio).toISOString(); 
+
+                const row = [
+                    reg.id || 'N/A',
+                    reg.metric,
+                    value.replace('.', ','), // Troca ponto por vírgula para CSV em português
+                    category,
+                    dateUTC,
+                ];
+                csv += row.map(item => `"${String(item).replace(/"/g, '""')}"`).join(";") + "\n";
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+
+            const today = new Date().toISOString().slice(0, 10);
+            a.setAttribute('download', `rastreador_habitos_local_backup_${today}.csv`);
+            a.setAttribute('href', url);
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            
+            a.click();
+            
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        };
+
+        // --- Inicialização da Aplicação ---
+        const iniciarAplicacao = () => {
+            // 1. Carrega todos os registros do Local Storage
+            allRegistros = loadRegistros();
+            
+            // 2. CRÍTICO: Garante que o limite de exibição seja sempre 10 ao carregar a página
+            historyLimit = INITIAL_LIMIT; 
+            
+            // 3. Renderiza a UI com o histórico e gráfico carregados
+            renderizarHistorico();
+            renderizarGrafico();
+            
+            console.log(`Aplicação iniciada. ${allRegistros.length} registros carregados do Local Storage.`);
+        };
+        
+        // Inicia a aplicação quando a página é carregada
+        window.onload = iniciarAplicacao;
+    </script>
+</body>
+</html>
